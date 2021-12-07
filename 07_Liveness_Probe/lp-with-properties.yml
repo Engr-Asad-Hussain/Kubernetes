@@ -1,0 +1,19 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: lp-with-properties
+spec:
+  containers:
+  - name: container1
+    image: aamirpinger/helloworld:latest
+    ports:
+    - containerPort: 80
+    livenessProbe: 
+      exec:
+        command:
+        - ls
+      failureThreshold: 3
+      periodSeconds: 10
+      successThreshold: 1
+      timeoutSeconds: 5
+      initialDelaySeconds: 15
