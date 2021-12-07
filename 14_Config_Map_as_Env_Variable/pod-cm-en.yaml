@@ -1,0 +1,13 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: podwithenv-varaible
+spec:
+  containers:
+  - name: container1
+    image: asadhussain1998/first-docker-app
+    env:
+    - name: USERNAME
+      value: asadhussain
+    - name: COURSERNAME
+      value: kubernetes
