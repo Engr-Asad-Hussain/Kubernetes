@@ -1,0 +1,15 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: rprobe-new
+spec:
+  containers:
+  - name: container-rp
+    image: asadhussain1998/first-docker-app:latest
+    ports:
+    - containerPort: 80
+    readinessProbe:
+      httpGet:
+        port: 90
+        path: /
+    
