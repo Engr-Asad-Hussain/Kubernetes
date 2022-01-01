@@ -1,0 +1,618 @@
+---> nano pv.yaml
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv
+spec:
+  accessModes:
+  - ReadWriteOnce  (hum chaty hain khe 1 hi worker node read bhi kary or wirte bhi kary)
+  capacity: (Hum kisi bhi PV main bataty hain khe kitni capacity ki space available hai jo bhi pod chahiye usse use krna. Use krne ke liye ofcourse kisi bhi pod of PVC ki zarurt parhegi wo calim ki madad se PV ko mount kargy or volume ki tarahn use krega)
+    storage: 100M (kitni space ap Hard disk ki dena chty hain use krna ex 100mb)
+  hostPath: (hamary cluster pr kis jaga pr humain wo tamam files mil jainge jo hamara pod PV use krty hue bananyega. Mtlb pod jub na bhi rahe tw us jaga pr ja kr wo files mil jainge)
+    path: /tmp/pvexample
+  persistentVolumeReclaimPolicy: Delete
+
+---> kubectl create -f pv.yaml
+
+---> kubectl get pv
+
+---> nano pvc.yaml
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: pvc
+spec:
+  accessModes:
+  - ReadWriteOnes   (here we have to write the same accessMode as we did in PV)
+  resources: (hum pvc us 100MB wali PV ko use krge tw hum iddher request kringe khe usse use kr sakin)
+    requests:
+      storage: 100M  (idher hum kam bhi likhainge tw chal jaega, agar zida likhinge tw wo mount nahi karyga)
+  storageClassName: "" (hum koi class nahi bataty, yeh kaam admin ka hota hai so keep it blank, here means jo bhi class blank wala ho us ke sath PVC ko mount krde)
+
+---> kubectl create -f pvc.yaml
+
+---> kubectl get pv, pvc
+
+Now you can see in "get pv" that status of pv is now change to Bound,  and claim is changed to pvc; means pvc name wale recalim ne isse claim kr liya hai.
+
+---> nano pod.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: pod-pv
+spec:
+  volumes:
+  - name: pv-volume
+    persistentVolumeClaim: 
+      claimName: pvc
+  containers:
+  - name: container1
+    image: aamirpinger/logfile_nodejs
+    volumeMounts:
+    - name: pv-volume
+      mountPath: /data
+
+---> kubectl create -f pod.yaml
+
+---> kubectl get pod,pv,pvc
+
+---> kubectl exec pod-pv -it sh
+# ls
+# cd ..
+# cd data
+# ls
+# cat time.txt
+# echo "Asad Hussain" > myname.txt
+# ls
+# cat myname.txt
+# exit
+
+Now lets check if this pod is delete then our data will remain exists or it will deleted?? Lekin pod ko delete krne se phely hum check krty hain khe cluster pr hamara data kahan save hoga app ko yad hoga khe humne /tmp/pv-example ke name se banaya tha.
+
+Ab agar minikube ke cluster (jo khe VB main hota hai) agar iss main jana hai tw yeh command :
+
+minikube ssh
+
+$ pwd
+$ cd / 
+$ pwd
+$ ls
+$ cd tmp
+$ ls
+$ cd pvexample
+$ ls
+Here you can see that that two files exists here also (time.txt , myname.txt)
+$ exit
+
+Now
+
+kubectl get pod,pv, pvc
+
+kubectl delete pod pod-pv
+
+Now lets se if our files exists or not ??
+
+kubectl get pods,pv,pvc
+
+minikube ssh
+$ pwd
+$ ls
+$ cd /
+$ cd tmp
+$ ls
+$ cd pvexample
+$ ls
+Here you can see that our two files didnt deleted. So technically our pod tw delete hogaya lekin our data save raha.
+
+
+Now
+
+kubectl delete pvc pvc
+
+kubectl get pods,pv,pvc
+Here you can see that not only pvc deleted but pv also deleted this is because we have assign "Delete" RecalimPolicy. It states that if pvc is deleted then pv is also deleted but our data remains persist"
+
+Now lets check again on minikube cluster that our data is present or not ???
+
+minikube ssh
+$ pwd
+$ ls
+$ cd /
+$ cd tmp
+$ ls
+$ cd pvexample
+$ ls
+Here you can see that our two files didnt deleted. So technically our pod tw delete hogaya lekin our data save raha.
+
+
+
+
+Config Map
+
+---> kubectl create configmap myfirstcm --from-literal=fname=Asad --from-literal=lname=Hussain
+This will create configMap from the command line. We can write in the form of key and value pair.
+
+---> kubectl get cm
+
+---> kubectl describe cm myfirstcm
+Check the insights of config map.
+
+---> nano user.txt
+firstname=Asad
+lastname=Hussain
+
+Now this will create configMap from file.
+
+---> kubectl create cm myfirstcmfromfile --from-file=user.txt
+
+---> kubectl get cm
+
+---> Kubectl describe cm myfirstcmfromfile
+jub bhi hum cm kisi file se banaty hain tw wo file name ko key bana deta hai and usmain jo likha hai wo values hoti hain for example:
+
+Name:         myfirstcmfromfile
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+user.txt:
+----
+firstname=Asad
+lastname=Hussain
+
+Events:  <none>
+
+
+Here you can see that it takes user.txt as key and firstname and lastname as value of user.txt
+
+But we don't want this what we can do now?
+
+---> kubectl create cm cmfromfile --from-file=bio=user.txt
+
+---> kubectl get cm cmfromfile -o yaml
+
+---> kubectl describe cm cmfromfile
+
+Name:         cmfromfile
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+biodata:
+----
+firstname=Asad
+lastname=Hussain
+
+Events:  <none>
+
+
+Now you can see that biodata as key and listed below are the values.
+
+
+---> nano cm.env
+CREATEDBY=AsadHussain
+
+---> kubectl create cm cmfromenvfile --from-env-file=cm.env
+
+---> kubectl get cm
+
+---> kubectl describe cm cmfromenvfile
+
+Name:         cmfromenvfile
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+CREATEDBY:
+----
+AsadHussain
+Events:  <none>
+
+
+---> nano podwithcm.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: podwithcm
+spec:
+  volumes:
+  - name: cmvol
+    ConfigMap:    (give type as config map of volume)
+      name: myfirstcm
+  containers:
+  - name: container1
+    image: asadhussain1998/first-docker-app:latest
+    volumeMounts:
+    - name: cmvol
+      mountPath: /data/cm
+    imagePullPolicy: IfNotPresent  (to save time we are mention that please donot download the image (asadhussain1998/first-docker-app) again if it is present in our local machine)
+
+---> kubectl create -f podwithcm.yaml
+
+---> kubectl get pods
+
+---> kubectl describe cm myfirstcm
+Lets see first what are our key and values in the config map. Here you can see that we have 2 keys and 2 values. This configMap we have created using command line.
+
+Name:         myfirstcm
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+firstname:
+----
+Asad
+lastname:
+----
+Hussain
+Events:  <none>
+
+
+NOw lets gointo the container file system and lets see what happen there.
+
+---> kubectl exec podwithcm -c container1 -it sh
+
+# pwd
+# cd /
+# ls
+# cd data
+# ls
+# cd cm
+# ls
+# cat firstname
+
+Here you can see that we have 2 files present as fistname and lastname.
+
+This is how we can use configMap through volumes.
+
+
+---> nano podcmenv.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: podcmenv
+  labels:
+    app: envcmexample
+spec:
+  containers:
+  - name: container1
+    image: aamirpinger/node-app-image
+    imagePullPolicy: IfNotPresent
+    envFrom:    (env varaible kahan se lane hain)
+    - configMapRef:
+        name: cmfromenvfile
+
+---> kubectl create -f pod podcmenv.yaml
+
+---> kubectl get pods --show-labels
+
+Now lets goto the file system and see what happen there.
+---> kubectl exec podcmenv -c container1 -it sh
+
+# env  (it will print all the env variables of this container)
+
+Here you can see that CREATEDBY=AsadHussain 
+
+Now lets publish this pod on browser using service.
+
+
+---> kubectl expose pod podcmenv --port=8080 --target-port=8080 --type=LoadBalancer
+
+---> kubectl get svc
+---> minikube ip
+NOW check the app on web browser
+
+
+
+
+* SECRETS
+
+---> kubectl create secret generic myfirstsecret --from-literal=username=AsadHussain --from-literal=API=test.db.aws.com
+
+---> kubectl get secret
+Here you can see that there is 1 bydefault secreat which is of kubernetes
+
+---> kubectl describe secret myfirstsecret
+Here you can see that it shows the key but it don't show the values, If you want to see the values then use following command
+
+Name:         myfirstsecret
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Type:  Opaque
+
+Data
+====
+api:       15 bytes
+username:  11 bytes
+
+
+---> kubectl get seccret myfirstsecret -o yaml
+
+data:
+  api: dGVzdC5kYi5hd3MuY29t
+  username: QXNhZEh1c3NhaW4=
+
+here you can see that it shows the values in the encoded form. It is far better than simple raw data. We can decode it using echo command see the below command.
+
+
+---> echo dGVzdC5kYi5hd3MuY29t | base64 -d
+
+test.db.aws.com
+
+---> nano keyval.txt
+firstname=Asad
+lastname=Hussain
+
+---> kubectl create secret generic  secretfromfile --from-file=biodata=keyval.txt
+
+---> kubectl get secret
+
+---> kubectl describe secret secretfromfile
+
+---> kubectl get secrets secretfromfile -o yaml
+
+data:
+  biodata: Zmlyc3RuYW1lPUFzYWQKbGFzdG5hbWU9SHVzc2Fpbgo=
+
+
+---> echo Zmlyc3RuYW1lPUFzYWQKbGFzdG5hbWU9SHVzc2Fpbgo= | base64 -d
+
+firstname=Asad
+lastname=Hussain
+
+---> kubectl create secret generic secretfromenv --from-env-file=keyvalue.txt
+
+---> kubectl get secrets
+
+---> kubectl describe secrets secretfromenv
+
+
+---> nano podsecret.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: podwithsecretvol
+spec:
+  volumes:
+  - name: secvol
+    secret:    (emptyDir{} persistentVolumeClaim, configMap, secret, Uptill now we have learn these 4 types of volumes)
+      secretName: myfirstsecret
+  containers:
+  - name: container1
+    image: asadhussain1998/first-docker-app
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - name: secvol
+      mountPath: /secretdata
+
+---> kubectl create -f podsecret.yaml
+
+---> kubectl get pods
+
+---> kubectl exec podwithsecretvol -c container1 -it sh
+
+# pwd
+# ls
+# cd /
+# cd secretdata
+# ls
+Here you can see that which key and value is present in the myfirstsecret is now present in the form of txt file.
+
+
+---> nano secretenv.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: secretenv
+spec:
+  containers:
+  - name: container1
+    image: nginx
+    imagePullPolicy: IfNotPresent
+    envFrom:
+    - secretRef:
+        name: myfirstsecret
+
+
+---> kubectl create -f secretenv.yaml
+
+---> kubectl get pods
+
+---> kubectl exec secretenv -it sh
+# env
+
+PODCMENV_PORT_8080_TCP_PROTO=tcp
+KUBERNETES_SERVICE_PORT=443
+KUBERNETES_PORT=tcp://10.96.0.1:443
+PODCMENV_PORT=tcp://10.100.60.45:8080
+PODCMENV_SERVICE_PORT=8080
+HOSTNAME=secretenv
+username=AsadHussain
+HOME=/root
+PODCMENV_PORT_8080_TCP=tcp://10.100.60.45:8080
+PKG_RELEASE=1~buster
+TERM=xterm
+KUBERNETES_PORT_443_TCP_ADDR=10.96.0.1
+NGINX_VERSION=1.17.10
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+KUBERNETES_PORT_443_TCP_PORT=443
+NJS_VERSION=0.3.9
+KUBERNETES_PORT_443_TCP_PROTO=tcp
+KUBERNETES_PORT_443_TCP=tcp://10.96.0.1:443
+KUBERNETES_SERVICE_PORT_HTTPS=443
+api=test.db.aws.com
+KUBERNETES_SERVICE_HOST=10.96.0.1
+PWD=/
+PODCMENV_SERVICE_HOST=10.100.60.45
+PODCMENV_PORT_8080_TCP_ADDR=10.100.60.45
+PODCMENV_PORT_8080_TCP_PORT=8080
+
+Here you can see that our data has reached in the env data.
+
+
+---> nano podwithenvVariable.yaml
+kind: Pod
+apiVersion: v1
+metadata:
+  name: podwithenvVariable
+spec:
+  containers:
+  - name: container1
+    image: asadhussain1998/first-docker-app
+    imagePullPolicy: IfNotPresent
+    env:
+    - name: USERNAME  (this is key)
+      value: asadhussain (this is value)
+    - name: COURSERNAME
+      value: kubernetes
+
+---> kubectl create -f podwithenvVariable.yaml
+
+---> kubectl get pods
+
+---> kubectl exec podwithenvVariable env 
+
+Agar hum chaty hain khe exec se jis terminal pr jainge wahan koi cammand chala kr isi terminal pr dubara wapis aa jain the use this command. Instead of env we can also write ls, etc etc
+
+
+* DEPLOYMENT
+---> nano deploy.yaml
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: deployexample
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: container1
+        image: asadhussain1998/first-docker-app:latest
+        imagePullPolicy: IfNotPresent (bydefault "always" hoti hai means har dafa jub pod banaega tw download kryga)
+
+---> kubectl create -f deply.yaml
+
+---> kubectl get deploy
+or
+---> kubectl get deployment
+
+---> kubectl get rs
+
+---> kubectl get pods
+
+---> kubectl expose deployment deployexample --port=8080 --target-port=8LoadBalancer
+
+---> kubectl get svc
+
+---> minikube ip
+
+Now we are updating our application. We have also expose to the web browser.
+
+---> kubectl set image deployment deployexample container1=aamirpinger/flag 
+
+THis will change the image of deployexample to this image. Means we have updated out application. By default it will update using rolling strategy.
+
+---> kubectl get deplloy,rs,pod
+
+NAME                                       DESIRED   CURRENT   READY   AGE
+replicaset.apps/deployexample-7b7dd957cb   4         4         4       61s
+replicaset.apps/deployexample-855d64df6f   0         0         0       15m
+
+
+Now you can see that kubernetes has created new rs and assign all the replicas which we have assigned in yaml file. But why it didnt delete old rs ??
+This is because if the image which you uploaded/updated if incase there is an bug/error in that file then what you do?? You whish to goback to the previous version of the image. So as a backup it don't delete the old rs.
+
+
+---> nano deploy.yaml
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: deployexample
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: container1
+        image: asadhussain1998/first-docker-app:latest
+        imagePullPolicy: IfNotPresent 
+  strategy:
+    type: RollingUpdate  (Bydefault, Puray pod ko delete karta hai, phr 1 new pod banata hai then again)
+    rollingUpdate:
+      maxUnavailable: 0   (Jub wo purana 1 pod delete kary tw is cheez ko make sure kary khe hamary rs ke jo numbers hain usmain se 0 bhi missing nahi hona cahiye. Matlb yeh khe humne upper replicas:4 batai hai, tw 1 pod bhi missing nahi hona chahiye deployment ke dauraan)
+      maxSurge: 1        (1 extra pod hum afford krsakty hain, mtlb 4 ke bajae 5 pod bana lena lekin har wakt 4 pods hone hi chaihye. Jub wo new pods create kryga tw max pods ke number kitny barh sakty hain. Is example main wo phely 4 pods jo phely thee usemain 1 new pod banaega new image ke sath ab total 5 pods hogae. Ab wo purana 1 pod delete karyga Tw ab dubara 4 hogae then dubara 1 new create karga then delete the old pod. So see we have 4 pods all the time and we afford 1 extra pod)
+
+Agar yeh last 4 points hum yaml file main nahi likhty tw bydefault kubernetes RollingUpdate strategy use krta hai. And jitne replicas humne batae hoty hain uska 25% maxUnavailable main dal deta hai and 25% maxSurge main dal deta hai. Upper wali example main 4 replicas hain tw maxUnavailable: 1 and maxSurge: 1 hote bydefault.
+
+---> nano deploy.yaml
+kind: Deployment
+apiVersion: apps/v1beta1
+metadata:
+  name: deployexample
+spec:
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: container1
+        image: asadhussain1998/first-docker-app:latest
+        imagePullPolicy: IfNotPresent 
+  strategy:
+    type: Recreate  (Sary pods ko ek sath delete karyga and sary pods ko new image se banaega ek sath)
+
+
+---> kubectl rollout pause deploy deployexample
+It will pause the deployment. Means agar aapki application deploy ho rahi or aa chahty hain khe wo pause hojae or agy abhi continue na ho tw this command will work.
+
+---> kubectl rollout resume deploy deployexample
+
+---> kubectl rollout status deploy deployexample
+check the deployment status.
+
+---> kubectl rollout history deploy deployexample
+
+
+
+Here there are 2 revisions means jub aapne pheli bar aplication banai thi tw uski image ko 1 count krta hai then jub aapne aplication ko kisi new image se update kara tw usse wo 2 count maanta hai.
+
+If we want to check the insights of revision 1 then use the following command.
+
+---> kubectl rollout history deploy deployexample --revision=1
+
+---> kubectl rollout history deploy deployexample --revision=2
+
+---> kubectl rollout undo deploy deployexample --to-revision=1
+
+Here mene phele bataya tha khe kubernetes deployment ke duran ek new rs banata hai. Tw ussi bat ko complete karta hun yahan. Agar aap pichli revision pr jana cahty hain means agar aap nahi cahty khe yeh new update aap ki application pr cahly tw without flag command use karin.
+
+Agar aap kisi makssus revision pr jana cahty hain tw --to-revision=1 idher number mention kr dein khe konsi revision pr jana chaty hain.
+
+
+---> kubectl rollout status deploy deployexample
+
+---> kubectl get pods
+
+---> kubectl describe pod  deployexample-782213015102
+
+Here you can see the image what image is working
+
+---> kubectl rollout history deploy deployexample
